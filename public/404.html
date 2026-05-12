@@ -6,8 +6,8 @@
       // Redirect all GitHub Pages 404s back to index.html with the path preserved
       var l = window.location;
       l.replace(l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
-        l.pathname.split('/').slice(0, 1).join('/') +
-        '/?p=' + encodeURIComponent(l.pathname + l.search) + l.hash);
+        l.pathname.split('/').slice(0, 2).join('/') +
+        '/?p=' + encodeURIComponent('/' + l.pathname.split('/').slice(2).join('/') + l.search) + l.hash);
     </script>
   </head>
   <body></body>
