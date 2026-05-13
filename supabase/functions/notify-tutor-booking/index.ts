@@ -107,14 +107,15 @@ Deno.serve(async (req) => {
                   </tr>`).join("")}
               </table>
               <p style="margin-top:24px">
-                <a href="https://studybuddy.app/tutor-dashboard" style="background:#d97706;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">
+                <a href="https://joinstudybuddy.com/tutor-dashboard" style="background:#DC2626;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">
                   Review request →
                 </a>
               </p>
               <p style="margin-top:20px;font-size:13px;color:#666">
                 The student's card is authorized but not charged until you accept. If you don't respond within 24 hours the request will expire.
               </p>
-              <p style="font-size:12px;color:#999">Study Buddy · SDSU</p>
+              <p style="font-size:13px;color:#666">Have questions? Email us at <a href="mailto:mo.nooreldin7@gmail.com" style="color:#DC2626">mo.nooreldin7@gmail.com</a></p>
+              <p style="font-size:12px;color:#999">Study Buddy · joinstudybuddy.com</p>
             </div>`,
         }),
       });

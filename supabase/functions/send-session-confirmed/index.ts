@@ -115,7 +115,8 @@ Deno.serve(async (req) => {
               <p style="margin-top:20px;font-size:13px;color:#666">
                 Charges follow our normal policy once the session runs. Reply in your Study Buddy conversation if you need to coordinate.
               </p>
-              <p style="font-size:12px;color:#999">Study Buddy · SDSU</p>
+              <p style="font-size:13px;color:#666">Have questions? Email us at <a href="mailto:mo.nooreldin7@gmail.com" style="color:#DC2626">mo.nooreldin7@gmail.com</a></p>
+              <p style="font-size:12px;color:#999">Study Buddy · joinstudybuddy.com</p>
             </div>`,
         }),
       });

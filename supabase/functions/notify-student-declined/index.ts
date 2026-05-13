@@ -115,11 +115,12 @@ Deno.serve(async (req) => {
               </table>
               ${!isReschedule ? `
               <p style="margin-top:24px">
-                <a href="https://studybuddy.app/browse" style="background:#d97706;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">
+                <a href="https://joinstudybuddy.com/browse" style="background:#DC2626;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">
                   Find another tutor →
                 </a>
               </p>` : ""}
-              <p style="font-size:12px;color:#999;margin-top:24px">Study Buddy · SDSU</p>
+              <p style="font-size:13px;color:#666;margin-top:16px">Have questions? Email us at <a href="mailto:mo.nooreldin7@gmail.com" style="color:#DC2626">mo.nooreldin7@gmail.com</a></p>
+              <p style="font-size:12px;color:#999;margin-top:8px">Study Buddy · joinstudybuddy.com</p>
             </div>`,
         }),
       });

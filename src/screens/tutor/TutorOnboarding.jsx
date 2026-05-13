@@ -60,7 +60,7 @@ const TIMEZONES = [
 const STEPS = [
   { id: 1, label: 'Basics' },
   { id: 2, label: 'Photo' },
-  { id: 3, label: 'Certification' },
+  { id: 3, label: 'Transcript' },
   { id: 4, label: 'Education' },
   { id: 5, label: 'Profile' },
   { id: 6, label: 'Video' },
@@ -463,92 +463,82 @@ const S2 = ({ d, up, next, back }) => {
   );
 };
 
-// ── Step 3: Certification ─────────────────────────────────────────────────────
+// ── Step 3: Unofficial transcript ────────────────────────────────────────────
 const S3 = ({ d, up, next, back }) => {
+  const [err, setErr] = useState('');
   const ref = useRef(null);
 
   const handleFile = f => {
     if (!f) return;
     up('certFile', f);
     up('certFileName', f.name);
-    up('hasCertification', true);
+    setErr('');
+  };
+
+  const go = () => {
+    if (!d.certFile) return setErr('Please upload your unofficial transcript before continuing.');
+    next();
   };
 
   return (
     <div>
       <BackBtn onClick={back} />
-      <StepH step={3} title="Do you hold a teaching certification?"
-        sub="Certified tutors receive a verified badge on their profile, which significantly increases booking trust." />
+      <StepH step={3} title="Upload your unofficial transcript."
+        sub="We verify that you earned an A in each subject you selected. This is how we guarantee quality for students." />
+      <ErrBox msg={err} />
 
-      {/* Skip option */}
-      <button onClick={() => { up('hasCertification', false); up('certFile', null); next(); }} style={{
-        display: 'flex', alignItems: 'center', gap: 16, width: '100%',
-        padding: '16px 20px', borderRadius: 12, marginBottom: 20, fontFamily: FONTS.sans,
-        border: `1.5px solid ${d.hasCertification === false ? RED : 'var(--border)'}`,
-        background: d.hasCertification === false ? RED_SOFT : 'var(--surface)',
-        cursor: 'pointer', textAlign: 'left', transition: 'all .12s',
-      }}>
-        <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--surface-2)',
-          border: '1.5px solid var(--border)', display: 'flex', alignItems: 'center',
-          justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>✕</div>
+      {/* Info box */}
+      <div style={{ background: RED_SOFT, border: `1px solid ${RED_MID}`, borderRadius: 12,
+        padding: '16px 20px', marginBottom: 24, display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+        <span style={{ fontSize: 24, flexShrink: 0 }}>📄</span>
         <div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)', marginBottom: 3 }}>
-            I don't have a teaching certification
+          <div style={{ fontSize: 14, fontWeight: 600, color: RED, marginBottom: 6 }}>
+            How to get your unofficial transcript
           </div>
-          <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>
-            Skip and move to the next step — you can still be a great tutor
+          <ol style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.8 }}>
+            <li>Go to <strong>my.sdsu.edu</strong> → Student Center</li>
+            <li>Click <strong>Academic Records</strong> → <strong>Unofficial Transcript</strong></li>
+            <li>Download as PDF or take a screenshot</li>
+          </ol>
+          <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 8 }}>
+            We only check for the A grades in your selected subjects. All other information is kept private and not shared with students.
           </div>
         </div>
-        <div style={{ marginLeft: 'auto', fontSize: 20, color: 'var(--ink-3)' }}>→</div>
-      </button>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-        <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-        <span style={{ fontSize: 13, color: 'var(--ink-3)', fontWeight: 500 }}>or upload your certification</span>
-        <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
       </div>
 
-      <div onClick={() => ref.current?.click()} style={{
-        border: `2px dashed ${d.certFile ? RED : 'var(--border)'}`,
-        borderRadius: 12, padding: '40px 24px', textAlign: 'center',
-        background: d.certFile ? RED_SOFT : 'var(--surface)',
-        cursor: 'pointer', transition: 'all .15s', marginBottom: 16,
-      }}>
+      {/* Upload area */}
+      <div onClick={() => ref.current?.click()}
+        onDragOver={e => e.preventDefault()}
+        onDrop={e => { e.preventDefault(); handleFile(e.dataTransfer.files?.[0]); }}
+        style={{
+          border: `2px dashed ${d.certFile ? RED : 'var(--border)'}`,
+          borderRadius: 12, padding: '44px 24px', textAlign: 'center',
+          background: d.certFile ? RED_SOFT : 'var(--surface)',
+          cursor: 'pointer', transition: 'all .15s', marginBottom: 20,
+        }}>
         {d.certFile ? (
           <>
-            <div style={{ fontSize: 36, color: RED, marginBottom: 8 }}>✓</div>
+            <div style={{ fontSize: 40, color: RED, marginBottom: 8 }}>✓</div>
             <div style={{ fontSize: 15, fontWeight: 600, color: RED }}>{d.certFileName}</div>
-            <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 4 }}>Click to replace</div>
+            <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 6 }}>
+              {(d.certFile.size / 1024).toFixed(0)} KB · Click to replace
+            </div>
           </>
         ) : (
           <>
-            <div style={{ fontSize: 32, color: 'var(--ink-3)', marginBottom: 8 }}>⬆</div>
+            <div style={{ fontSize: 36, color: 'var(--ink-3)', marginBottom: 10 }}>⬆</div>
             <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--ink)', marginBottom: 4 }}>
-              Drop your certification here
+              Drop your transcript here or click to upload
             </div>
             <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>PDF, JPG, or PNG · reviewed within 24 hours</div>
           </>
         )}
       </div>
 
-      {d.certFile && (
-        <>
-          <div style={{ background: RED_SOFT, border: `1px solid ${RED_MID}`, borderRadius: 10,
-            padding: '14px 16px', marginBottom: 24, display: 'flex', gap: 12, alignItems: 'center' }}>
-            <span style={{ fontSize: 24 }}>🏅</span>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: RED }}>Verified badge pending review</div>
-              <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>
-                Our team will add a ✓ badge to your profile once your certification is approved.
-              </div>
-            </div>
-          </div>
-          <ContBtn onClick={next} />
-        </>
-      )}
-
       <input ref={ref} type="file" accept=".pdf,.jpg,.jpeg,.png"
         style={{ display: 'none' }} onChange={e => handleFile(e.target.files?.[0])} />
+
+      <ContBtn onClick={go} />
     </div>
   );
 };

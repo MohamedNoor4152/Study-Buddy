@@ -292,15 +292,15 @@ const AppCard = ({ app, onApprove, onReject, processing }) => {
                 </div>
               )}
 
-              {/* Certification */}
+              {/* Transcript */}
               <div style={{ marginBottom: 16 }}>
-                <SectionLabel>Teaching certification</SectionLabel>
+                <SectionLabel>Unofficial transcript</SectionLabel>
                 {app.certification_path
-                  ? <div style={{ padding: '10px 14px', background: '#EFF6FF', border: '1px solid #BFDBFE',
-                      borderRadius: 8, fontSize: 13, color: '#1D4ED8', fontWeight: 500 }}>
-                      🏅 Certification uploaded — view in Supabase Storage → certifications/{app.user_id}
+                  ? <div style={{ padding: '10px 14px', background: RED_SOFT, border: `1px solid ${RED_MID}`,
+                      borderRadius: 8, fontSize: 13, color: RED, fontWeight: 500 }}>
+                      📄 Transcript uploaded — view in Supabase Storage → certifications/{app.user_id}
                     </div>
-                  : <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>No certification uploaded</div>
+                  : <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>No transcript uploaded</div>
                 }
               </div>
 

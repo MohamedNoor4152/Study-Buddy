@@ -58,6 +58,7 @@ serve(async (req) => {
               <li>Make sure your schedule is up to date</li>
               <li>Connect your payout account to receive earnings</li>
             </ul>
+            <p style="color:#666;font-size:14px">Have questions? Email us at <a href="mailto:mo.nooreldin7@gmail.com" style="color:#DC2626">mo.nooreldin7@gmail.com</a></p>
             <p style="color:#999;font-size:12px;margin-top:24px">Study Buddy · joinstudybuddy.com</p>
           </div>
         `,

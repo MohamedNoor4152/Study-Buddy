@@ -56,7 +56,7 @@ serve(async (req) => {
                 Apply again →
               </a>
             </div>
-            <p>If you have any questions, reply to this email and we'll be happy to help.</p>
+            <p style="color:#666;font-size:14px">Have questions? Email us at <a href="mailto:mo.nooreldin7@gmail.com" style="color:#DC2626">mo.nooreldin7@gmail.com</a></p>
             <p style="color:#999;font-size:12px;margin-top:24px">Study Buddy · joinstudybuddy.com</p>
           </div>
         `,
