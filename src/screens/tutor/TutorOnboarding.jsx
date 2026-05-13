@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FONTS } from '../../tokens.js';
 import { Logo } from '../../components/primitives/index.jsx';
@@ -25,10 +25,21 @@ const SDSU_CLASSES = [
 ];
 
 const COUNTRIES = [
-  'United States','Mexico','China','India','South Korea','Vietnam','Philippines',
-  'Saudi Arabia','UAE','Iran','Turkey','Brazil','United Kingdom','Canada',
-  'Australia','Japan','Germany','France','Pakistan','Egypt','Nigeria',
-  'Indonesia','Malaysia','Thailand','Colombia','Peru','Argentina','Other',
+  'Afghanistan','Albania','Algeria','Angola','Argentina','Armenia','Australia','Austria',
+  'Azerbaijan','Bahrain','Bangladesh','Belarus','Belgium','Bolivia','Bosnia and Herzegovina',
+  'Brazil','Bulgaria','Cambodia','Canada','Chile','China','Colombia','Croatia','Cuba',
+  'Cyprus','Czech Republic','Denmark','Ecuador','Egypt','El Salvador','Estonia','Ethiopia',
+  'Finland','France','Georgia','Germany','Ghana','Greece','Guatemala','Honduras','Hungary',
+  'Iceland','India','Indonesia','Iran','Iraq','Ireland','Israel','Italy','Jamaica','Japan',
+  'Jordan','Kazakhstan','Kenya','Kuwait','Kyrgyzstan','Latvia','Lebanon','Libya','Lithuania',
+  'Luxembourg','Malaysia','Maldives','Mexico','Moldova','Mongolia','Morocco','Mozambique',
+  'Myanmar','Nepal','Netherlands','New Zealand','Nicaragua','Nigeria','Norway','Oman',
+  'Pakistan','Panama','Paraguay','Peru','Philippines','Poland','Portugal','Qatar','Romania',
+  'Russia','Saudi Arabia','Senegal','Serbia','Singapore','Slovakia','Slovenia','Somalia',
+  'South Africa','South Korea','Spain','Sri Lanka','Sudan','Sweden','Switzerland','Syria',
+  'Taiwan','Tajikistan','Tanzania','Thailand','Trinidad and Tobago','Tunisia','Turkey',
+  'Turkmenistan','Uganda','Ukraine','United Arab Emirates','United Kingdom','United States',
+  'Uruguay','Uzbekistan','Venezuela','Vietnam','Yemen','Zimbabwe','Other',
 ];
 
 const TIMEZONES = [
@@ -203,18 +214,117 @@ const Stepper = ({ current, completed, onGoTo }) => (
   </div>
 );
 
+// ── Subjects dropdown ─────────────────────────────────────────────────────────
+const SubjectsDropdown = ({ selected, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const close = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, []);
+
+  const toggle = code => onChange(
+    selected.includes(code) ? selected.filter(c => c !== code) : [...selected, code]
+  );
+  const toggleDept = codes => {
+    const allOn = codes.every(c => selected.includes(c));
+    onChange(allOn ? selected.filter(c => !codes.includes(c)) : [...new Set([...selected, ...codes])]);
+  };
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <FL req>Subjects you can teach</FL>
+      <button onClick={() => setOpen(o => !o)} style={{
+        ...inp, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        cursor: 'pointer', background: 'var(--surface)', textAlign: 'left',
+        borderColor: open ? 'var(--ink)' : 'var(--border)',
+      }}>
+        <span style={{ color: selected.length ? 'var(--ink)' : 'var(--ink-3)', fontSize: 15 }}>
+          {selected.length === 0
+            ? 'Click to select subjects…'
+            : `${selected.length} subject${selected.length !== 1 ? 's' : ''} selected`}
+        </span>
+        <span style={{ color: 'var(--ink-3)', fontSize: 11, marginLeft: 8 }}>{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 50,
+          background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 12,
+          boxShadow: '0 8px 32px rgba(0,0,0,.12)', maxHeight: 380, overflowY: 'auto',
+        }}>
+          {SDSU_CLASSES.map(({ dept, codes }) => {
+            const allOn = codes.every(c => selected.includes(c));
+            return (
+              <div key={dept} style={{ borderBottom: '1px solid var(--border)' }}>
+                <div onClick={() => toggleDept(codes)} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '10px 16px', cursor: 'pointer', background: allOn ? RED_SOFT : 'transparent',
+                }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase',
+                    letterSpacing: '0.08em', color: allOn ? RED : 'var(--ink-2)' }}>{dept}</span>
+                  <span style={{ fontSize: 11, color: allOn ? RED : 'var(--ink-3)' }}>
+                    {allOn ? 'Deselect all' : 'Select all'}
+                  </span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, padding: '4px 12px 10px' }}>
+                  {codes.map(code => {
+                    const on = selected.includes(code);
+                    return (
+                      <div key={code} onClick={() => toggle(code)} style={{
+                        padding: '7px 10px', borderRadius: 8, cursor: 'pointer',
+                        background: on ? RED : 'var(--surface-2)',
+                        border: `1.5px solid ${on ? RED : 'var(--border)'}`,
+                        color: on ? '#fff' : 'var(--ink-2)',
+                        fontSize: 12, fontWeight: on ? 600 : 400,
+                        fontFamily: FONTS.mono, textAlign: 'center',
+                        transition: 'all .1s',
+                      }}>{code}</div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+          {selected.length > 0 && (
+            <div style={{ padding: '10px 16px', background: RED_SOFT, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 13, color: RED, fontWeight: 600 }}>{selected.length} selected</span>
+              <button onClick={() => { onChange([]); setOpen(false); }}
+                style={{ fontSize: 12, color: RED, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                Clear all
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {selected.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
+          {selected.map(code => (
+            <div key={code} onClick={() => toggle(code)} style={{
+              display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20,
+              background: RED_SOFT, border: `1px solid ${RED_MID}`,
+              fontSize: 12, color: RED, fontWeight: 600, cursor: 'pointer',
+            }}>
+              {code} <span style={{ fontSize: 14, lineHeight: 1 }}>×</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── Step 1: Basics ────────────────────────────────────────────────────────────
 const S1 = ({ d, up, next }) => {
   const [err, setErr] = useState('');
   const [showPw, setShowPw] = useState(false);
 
-  const togSub = code => up('subjects', d.subjects.includes(code)
-    ? d.subjects.filter(c => c !== code)
-    : [...d.subjects, code]);
-
   const go = () => {
     if (!d.firstName.trim() || !d.lastName.trim()) return setErr('First and last name are required.');
-    if (!d.country) return setErr('Please select your country of birth.');
+    if (!d.country && !d.countryOther?.trim()) return setErr('Please select your country of birth.');
     if (d.subjects.length === 0) return setErr('Select at least one subject you can tutor.');
     if (!d.email.trim() || !d.email.includes('@')) return setErr('Enter a valid email address.');
     if (d.password.length < 8) return setErr('Password must be at least 8 characters.');
@@ -234,42 +344,16 @@ const S1 = ({ d, up, next }) => {
       </div>
 
       <div style={{ marginBottom: 20 }}>
-        <SelInp label="Country of birth" req value={d.country} onChange={v => up('country', v)}
+        <SelInp label="Country of birth" req value={d.country} onChange={v => { up('country', v); if (v !== 'Other') up('countryOther', ''); }}
           options={COUNTRIES} placeholder="Select your country" />
+        {d.country === 'Other' && (
+          <input value={d.countryOther || ''} onChange={e => up('countryOther', e.target.value)}
+            placeholder="Type your country…" style={{ ...inp, marginTop: 8 }} />
+        )}
       </div>
 
       <div style={{ marginBottom: 24 }}>
-        <FL req>Subjects you can teach</FL>
-        <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 12 }}>
-          Select all courses you're confident tutoring
-        </div>
-        {SDSU_CLASSES.map(({ dept, codes }) => (
-          <div key={dept} style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em',
-              fontWeight: 700, color: 'var(--ink-3)', marginBottom: 6 }}>{dept}</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {codes.map(code => {
-                const on = d.subjects.includes(code);
-                return (
-                  <button key={code} onClick={() => togSub(code)} style={{
-                    padding: '5px 14px', borderRadius: 20, cursor: 'pointer',
-                    fontFamily: FONTS.sans, fontSize: 13,
-                    border: `1.5px solid ${on ? RED : 'var(--border)'}`,
-                    background: on ? RED_SOFT : 'var(--surface)',
-                    color: on ? RED : 'var(--ink-2)',
-                    fontWeight: on ? 600 : 400, transition: 'all .1s',
-                  }}>{code}</button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-        {d.subjects.length > 0 && (
-          <div style={{ padding: '10px 14px', background: RED_SOFT, border: `1px solid ${RED_MID}`,
-            borderRadius: 8, fontSize: 13, color: RED, marginTop: 6, fontWeight: 500 }}>
-            {d.subjects.length} subject{d.subjects.length !== 1 ? 's' : ''} selected: {d.subjects.join(', ')}
-          </div>
-        )}
+        <SubjectsDropdown selected={d.subjects} onChange={v => up('subjects', v)} />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
@@ -1011,7 +1095,7 @@ export default function TutorOnboarding() {
   const [submitted, setSubmitted] = useState(false);
 
   const [d, setD] = useState({
-    firstName: '', lastName: '', country: '', subjects: [], email: '', password: '', phone: '',
+    firstName: '', lastName: '', country: '', countryOther: '', subjects: [], email: '', password: '', phone: '',
     photoFile: null, photoUrl: '',
     hasCertification: null, certFile: null, certFileName: '',
     school: 'San Diego State University', year: '', major: '', gpa: '',
@@ -1043,7 +1127,7 @@ export default function TutorOnboarding() {
     try {
       const { data: authData, error: authErr } = await supabase.auth.signUp({
         email: d.email, password: d.password,
-        options: { data: { full_name: `${d.firstName} ${d.lastName}`, role: 'tutor', transcript_submitted: false } },
+          options: { data: { full_name: `${d.firstName} ${d.lastName}`, role: 'tutor', transcript_submitted: false, application_status: 'pending_review' } },
       });
       if (authErr) throw new Error(authErr.message);
       if (authData.user?.identities?.length === 0)
@@ -1071,8 +1155,9 @@ export default function TutorOnboarding() {
 
       await supabase.from('tutor_profiles').upsert({
         user_id: userId,
+        email: d.email,
         first_name: d.firstName, last_name: d.lastName,
-        country: d.country, phone: d.phone,
+        country: d.country === 'Other' ? (d.countryOther || 'Other') : d.country, phone: d.phone,
         photo_url: photoUrl,
         has_certification: d.hasCertification === true,
         certification_path: certPath,
@@ -1093,6 +1178,11 @@ export default function TutorOnboarding() {
         return { tutor_id: userId, day: k.slice(0, idx), hour: k.slice(idx + 1) };
       });
       if (slotRows.length > 0) await supabase.from('tutor_availability').insert(slotRows);
+
+      // Notify admin by email (fire-and-forget — don't block on failure)
+      supabase.functions.invoke('notify-new-application', {
+        body: { name: `${d.firstName} ${d.lastName}`, email: d.email, subjects: d.subjects, rate: d.rate },
+      }).catch(() => {});
 
       setSubmitted(true);
     } catch (e) {

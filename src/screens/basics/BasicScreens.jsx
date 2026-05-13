@@ -59,7 +59,7 @@ export const SBFooter = ({ onNav, slim }) => {
   const navigate = useNavigate();
   const nav = (k) => {
     if (onNav) { onNav(k); return; }
-    const routes = { help: '/help', terms: '/terms', privacy: '/privacy', about: '/about', browse: '/browse', signup: '/signup' };
+    const routes = { help: '/help', terms: '/terms', privacy: '/privacy', about: '/about', browse: '/browse', signup: '/signup', 'tutor-apply': '/tutor-apply' };
     if (routes[k]) navigate(routes[k]);
   };
 
@@ -92,7 +92,7 @@ export const SBFooter = ({ onNav, slim }) => {
         </div>
         <div style={{ display: 'flex', gap: 56 }}>
           {[
-            { h: 'Product', l: [['browse','Browse classes'],['signup','Become a tutor'],['help','How it works']] },
+            { h: 'Product', l: [['browse','Browse classes'],['tutor-apply','Become a tutor'],['help','How it works']] },
             { h: 'Company', l: [['about','About'],['help','Contact']] },
             { h: 'Legal', l: [['terms','Terms'],['privacy','Privacy'],['help','Trust & safety']] },
           ].map(col => (
@@ -352,7 +352,11 @@ export const SignUpFlow = () => {
                 ))}
               </div>
               <div style={{ marginTop: 32 }}>
-                <Btn fullWidth size="lg" onClick={() => role && setStep(2)} style={{ opacity: role ? 1 : 0.4 }}>Continue</Btn>
+                <Btn fullWidth size="lg" onClick={() => {
+                  if (!role) return;
+                  if (role === 'tutor') { navigate('/tutor-apply'); return; }
+                  setStep(2);
+                }} style={{ opacity: role ? 1 : 0.4 }}>Continue</Btn>
               </div>
             </>
           )}
@@ -1123,7 +1127,7 @@ export const AboutScreen = () => {
           </div>
           <div style={{ marginTop: 40, display: 'flex', gap: 12 }}>
             <Btn size="lg" onClick={() => navigate('/signup')}>Join Study Buddy</Btn>
-            <Btn variant="ghost" size="lg" onClick={() => navigate('/signup')}>Become a tutor</Btn>
+            <Btn variant="ghost" size="lg" onClick={() => navigate('/tutor-apply')}>Become a tutor</Btn>
           </div>
         </div>
       </div>

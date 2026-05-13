@@ -1,8 +1,9 @@
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Themed } from './components/primitives/index.jsx';
 import { useAuth } from './AuthContext.jsx';
 import { FONTS } from './tokens.js';
+import { supabase } from './supabase.js';
 
 // Redirect mobile visitors from a desktop route to its /mobile counterpart.
 // Only routes that have a mobile version are listed here.
@@ -67,12 +68,55 @@ const ProtectedRoute = ({ element }) => {
   return element;
 };
 
-// Only tutors may access tutor-specific routes
+// Pending approval screen shown to tutors whose application hasn't been approved yet
+const PendingApprovalScreen = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const handleLogout = async () => { await supabase.auth.signOut(); navigate('/'); };
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', background: 'var(--bg)', padding: '40px 24px', textAlign: 'center' }}>
+      <div style={{ width: 72, height: 72, borderRadius: '50%', background: '#FEF3C7',
+        border: '3px solid #F59E0B', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', fontSize: 32, marginBottom: 24 }}>⏳</div>
+      <h1 style={{ fontFamily: FONTS.serif, fontSize: 36, fontWeight: 400, margin: '0 0 12px', letterSpacing: -0.5 }}>
+        Application under review
+      </h1>
+      <p style={{ fontSize: 15, color: 'var(--ink-2)', maxWidth: 420, lineHeight: 1.65, margin: '0 0 8px' }}>
+        Thanks for applying, <strong>{user?.user_metadata?.full_name?.split(' ')[0] || 'there'}</strong>. Our team reviews applications within 24–48 hours.
+      </p>
+      <p style={{ fontSize: 14, color: 'var(--ink-3)', maxWidth: 380, lineHeight: 1.6, margin: '0 0 36px' }}>
+        You'll receive an email at <strong>{user?.email}</strong> once you're approved and live on the platform.
+      </p>
+      <button onClick={handleLogout} style={{ padding: '10px 24px', borderRadius: 10, border: '1px solid var(--border)',
+        background: 'transparent', cursor: 'pointer', fontSize: 14, color: 'var(--ink-3)', fontFamily: FONTS.sans }}>
+        Sign out
+      </button>
+    </div>
+  );
+};
+
+// Only tutors may access tutor-specific routes — blocks unapproved applications
 const TutorOnlyRoute = ({ element }) => {
   const { user, loading } = useAuth();
-  if (loading) return <LoadingScreen />;
+  const [appStatus, setAppStatus] = useState(null);
+  const [statusLoading, setStatusLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) { setStatusLoading(false); return; }
+    if (user.user_metadata?.role !== 'tutor') { setStatusLoading(false); return; }
+    // Check metadata first (set by approve-tutor function), fall back to DB
+    if (user.user_metadata?.application_status === 'approved') {
+      setAppStatus('approved'); setStatusLoading(false); return;
+    }
+    supabase.from('tutor_profiles').select('application_status').eq('user_id', user.id).maybeSingle()
+      .then(({ data }) => { setAppStatus(data?.application_status || 'pending_review'); setStatusLoading(false); });
+  }, [user]);
+
+  if (loading || statusLoading) return <LoadingScreen />;
   if (!user) return <Navigate to="/signin" replace />;
   if (user.user_metadata?.role !== 'tutor') return <Navigate to="/home" replace />;
+  if (appStatus !== 'approved') return <PendingApprovalScreen />;
   return element;
 };
 
@@ -112,6 +156,7 @@ import StudentHome from './screens/flow/StudentHome.jsx';
 // Tutor
 import { TutorDashboardLayout, TutorDashboardDesktop, ScheduleEditorDesktop, EditTutorProfileDesktop } from './screens/tutor/TutorDashboard.jsx';
 import TutorOnboarding from './screens/tutor/TutorOnboarding.jsx';
+import AdminDashboard from './screens/admin/AdminDashboard.jsx';
 import TutorMessages from './screens/tutor/TutorMessages.jsx';
 
 // Mobile
@@ -196,6 +241,7 @@ function App() {
           <Route path="/verify-email" element={<VerifyEmailScreen />} />
           <Route path="/tutor-verify" element={<TutorVerificationScreen />} />
           <Route path="/tutor-apply" element={<TutorOnboarding />} />
+          <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/states" element={<ProtectedRoute element={<StatesShowcase />} />} />
 
           {/* Auth & basics */}
