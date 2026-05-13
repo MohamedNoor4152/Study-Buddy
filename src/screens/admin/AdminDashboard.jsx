@@ -459,13 +459,20 @@ export default function AdminDashboard() {
   };
 
   const handleReject = async (userId, name) => {
-    if (!confirm(`Reject ${name}'s application? They will be notified by email.`)) return;
+    const reason = window.prompt(
+      `Rejecting ${name}.\n\nOptional: add a short reason to include in their email (leave blank to skip):`
+    );
+    // prompt returns null if they clicked Cancel
+    if (reason === null) return;
     setProcessing(userId);
     try {
-      const { error } = await supabase.functions.invoke('reject-tutor', { body: { tutorUserId: userId } });
+      const { error } = await supabase.functions.invoke('reject-tutor', {
+        body: { tutorUserId: userId, reason: reason || '' },
+      });
       if (error) throw error;
-      setApps(prev => prev.map(a => a.user_id === userId ? { ...a, application_status: 'rejected' } : a));
-      showToast(`${name}'s application rejected`);
+      // Remove the card — their account is deleted so they won't appear again
+      setApps(prev => prev.filter(a => a.user_id !== userId));
+      showToast(`${name} rejected and notified. They can reapply with the same email.`);
     } catch (e) {
       showToast(`Error: ${e.message}`);
     } finally {
