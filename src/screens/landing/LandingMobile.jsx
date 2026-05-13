@@ -126,7 +126,7 @@ const LandingMobile = ({ theme, onToggleTheme }) => {
         </div>
 
         <Btn fullWidth size="lg" onClick={() => navigate('/browse')}>Find a tutor</Btn>
-        <Btn fullWidth size="lg" variant="ghost" onClick={() => navigate('/signup')} style={{ marginTop: 10 }}>Become a tutor</Btn>
+        <Btn fullWidth size="lg" variant="ghost" onClick={() => navigate('/tutor-apply')} style={{ marginTop: 10 }}>Become a tutor</Btn>
 
         <div style={{ marginTop: 36 }}>
           <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--accent)', fontWeight: 600, marginBottom: 8 }}>

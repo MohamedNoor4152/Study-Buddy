@@ -111,6 +111,7 @@ import StudentHome from './screens/flow/StudentHome.jsx';
 
 // Tutor
 import { TutorDashboardLayout, TutorDashboardDesktop, ScheduleEditorDesktop, EditTutorProfileDesktop } from './screens/tutor/TutorDashboard.jsx';
+import TutorOnboarding from './screens/tutor/TutorOnboarding.jsx';
 import TutorMessages from './screens/tutor/TutorMessages.jsx';
 
 // Mobile
@@ -194,6 +195,7 @@ function App() {
           <Route path="/review" element={<ProtectedRoute element={<ReviewScreen />} />} />
           <Route path="/verify-email" element={<VerifyEmailScreen />} />
           <Route path="/tutor-verify" element={<TutorVerificationScreen />} />
+          <Route path="/tutor-apply" element={<TutorOnboarding />} />
           <Route path="/states" element={<ProtectedRoute element={<StatesShowcase />} />} />
 
           {/* Auth & basics */}

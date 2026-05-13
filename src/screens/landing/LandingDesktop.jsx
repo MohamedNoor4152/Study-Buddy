@@ -70,7 +70,7 @@ const LandingDesktop = ({ heroVariant = 'gradeReport' }) => {
         <div style={{ display: 'flex', gap: 28, fontSize: 14, color: 'var(--ink-2)' }}>
           {user && <span onClick={scrollToHowItWorks} style={{ cursor: 'pointer' }}>How it works</span>}
           <span onClick={() => navigate(user ? '/browse' : '/signup', { state: { role: 'student' } })} style={{ cursor: 'pointer' }}>Browse classes</span>
-          <span onClick={() => navigate('/signup', { state: { role: 'tutor' } })} style={{ cursor: 'pointer' }}>Become a tutor</span>
+          <span onClick={() => navigate('/tutor-apply')} style={{ cursor: 'pointer' }}>Become a tutor</span>
         </div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -202,7 +202,7 @@ const LandingDesktop = ({ heroVariant = 'gradeReport' }) => {
             <p style={{ fontSize: 15, lineHeight: 1.55, color: 'oklch(0.75 0.01 70)', margin: '0 0 24px', maxWidth: 480 }}>
               Set your own rate. Pick hours that fit your schedule. Average Study Buddy tutor earns $480–720 a month.
             </p>
-            <Btn size="lg" onClick={() => navigate('/signup')} style={{ background: 'var(--accent)', color: 'var(--accent-ink)', border: 'none' }}>
+            <Btn size="lg" onClick={() => navigate('/tutor-apply')} style={{ background: 'var(--accent)', color: 'var(--accent-ink)', border: 'none' }}>
               Become a tutor
             </Btn>
           </div>
@@ -226,7 +226,7 @@ const LandingDesktop = ({ heroVariant = 'gradeReport' }) => {
         <Logo size={18} />
         <div style={{ display: 'flex', gap: 24 }}>
           <span style={{ cursor: 'pointer' }} onClick={scrollToHowItWorks}>How it works</span>
-          <span style={{ cursor: 'pointer' }} onClick={() => navigate('/signup', { state: { role: 'tutor' } })}>Become a tutor</span>
+          <span style={{ cursor: 'pointer' }} onClick={() => navigate('/tutor-apply')}>Become a tutor</span>
           <span style={{ cursor: 'pointer' }} onClick={() => navigate('/help')}>Help</span>
           <span style={{ cursor: 'pointer' }} onClick={() => navigate('/terms')}>Terms</span>
           <span style={{ cursor: 'pointer' }} onClick={() => navigate('/privacy')}>Privacy</span>
