@@ -139,7 +139,8 @@ class SafeAppCard extends React.Component {
 // ── Application card ──────────────────────────────────────────────────────────
 const AppCard = ({ app, onApprove, onReject, processing }) => {
   const [expanded, setExpanded] = useState(false);
-  const [schedule, setSchedule] = useState(null);
+  // _schedule is pre-fetched by the edge function using service role (bypasses RLS)
+  const schedule = Array.isArray(app._schedule) ? app._schedule : null;
   const date = app.updated_at
     ? new Date(app.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : '—';
@@ -147,12 +148,6 @@ const AppCard = ({ app, onApprove, onReject, processing }) => {
   const name   = tutorDisplayName(app);
   const initials = name !== '(no name)' ? String(name)[0].toUpperCase() : '?';
 
-  // Load schedule when expanded
-  useEffect(() => {
-    if (!expanded || schedule !== null || !app.user_id) return;
-    supabase.from('tutor_availability').select('day,hour').eq('tutor_id', app.user_id)
-      .then(({ data }) => setSchedule(data || []));
-  }, [expanded]);
 
   const slotSet = new Set(
     (schedule || []).filter((r) => r?.day && r?.hour).map((r) => `${r.day}-${r.hour}`),
@@ -330,8 +325,8 @@ const AppCard = ({ app, onApprove, onReject, processing }) => {
               {/* Schedule */}
               <div style={{ marginBottom: 16 }}>
                 <SectionLabel>Weekly availability</SectionLabel>
-                {schedule === null ? (
-                  <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>Loading schedule…</div>
+                {!schedule ? (
+                  <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>Not available</div>
                 ) : schedule.length === 0 ? (
                   <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>No availability set yet</div>
                 ) : (

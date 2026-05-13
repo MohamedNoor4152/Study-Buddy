@@ -43,14 +43,33 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const { data, error } = await admin
+    const { data: profiles, error } = await admin
       .from("tutor_profiles")
       .select("*")
       .order("updated_at", { ascending: false });
 
     if (error) throw error;
 
-    return new Response(JSON.stringify({ applications: data ?? [] }), {
+    // Fetch availability for all tutors in one query
+    const userIds = (profiles ?? []).map((p: { user_id: string }) => p.user_id).filter(Boolean);
+    let availability: { tutor_id: string; day: string; hour: string }[] = [];
+    if (userIds.length > 0) {
+      const { data: avail } = await admin
+        .from("tutor_availability")
+        .select("tutor_id, day, hour")
+        .in("tutor_id", userIds);
+      availability = avail ?? [];
+    }
+
+    // Attach schedule to each profile
+    const applications = (profiles ?? []).map((p: Record<string, unknown>) => ({
+      ...p,
+      _schedule: availability.filter(
+        (a: { tutor_id: string }) => a.tutor_id === p.user_id
+      ),
+    }));
+
+    return new Response(JSON.stringify({ applications }), {
       headers: { ...cors, "Content-Type": "application/json" },
     });
   } catch (e) {
