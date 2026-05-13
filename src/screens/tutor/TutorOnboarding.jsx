@@ -317,19 +317,118 @@ const SubjectsDropdown = ({ selected, onChange }) => {
   );
 };
 
+// ── Email verification sub-screen (between step 1 and step 2) ────────────────
+const EmailVerify = ({ email, onVerified, onBack }) => {
+  const [code, setCode] = useState('');
+  const [err, setErr] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
+
+  const verify = async () => {
+    if (code.trim().length !== 6) return setErr('Enter the 6-digit code from your email.');
+    setLoading(true); setErr('');
+    const { data, error } = await supabase.functions.invoke('verify-email', {
+      body: { action: 'verify', email, code: code.trim() },
+    });
+    setLoading(false);
+    if (error || data?.error) {
+      const e = data?.error || error?.message;
+      if (e === 'expired') setErr('This code has expired. Click "Resend code" to get a new one.');
+      else if (e === 'wrong_code') setErr('Incorrect code. Please check your email and try again.');
+      else setErr('Verification failed. Please try again.');
+      return;
+    }
+    onVerified();
+  };
+
+  const resend = async () => {
+    setResending(true); setResent(false); setErr('');
+    await supabase.functions.invoke('verify-email', { body: { action: 'send', email } });
+    setResending(false); setResent(true);
+    setTimeout(() => setResent(false), 4000);
+  };
+
+  return (
+    <div>
+      <BackBtn onClick={onBack} />
+      <div style={{ marginBottom: 32 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <div style={{ width: 28, height: 28, borderRadius: '50%', background: RED,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#fff', fontSize: 13, fontWeight: 700 }}>✉</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: RED, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+            Verify your email
+          </div>
+        </div>
+        <h2 style={{ fontFamily: FONTS.serif, fontSize: 36, fontWeight: 400, margin: '0 0 10px', letterSpacing: -0.5 }}>
+          Check your inbox
+        </h2>
+        <p style={{ fontSize: 15, color: 'var(--ink-2)', margin: 0, lineHeight: 1.6 }}>
+          We sent a 6-digit code to <strong>{email}</strong>. Enter it below to continue.
+        </p>
+      </div>
+
+      <ErrBox msg={err} />
+
+      <div style={{ marginBottom: 28 }}>
+        <FL req>Verification code</FL>
+        <input
+          value={code}
+          onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+          onKeyDown={e => e.key === 'Enter' && verify()}
+          placeholder="000000"
+          style={{
+            ...inp, fontSize: 32, fontWeight: 700, letterSpacing: 12,
+            textAlign: 'center', fontFamily: FONTS.mono,
+          }}
+        />
+        <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 6, textAlign: 'center' }}>
+          Code expires in 10 minutes
+        </div>
+      </div>
+
+      <ContBtn onClick={verify} loading={loading} label="Verify & continue" disabled={code.length !== 6} />
+
+      <div style={{ marginTop: 20, textAlign: 'center' }}>
+        <button onClick={resend} disabled={resending} style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          fontSize: 13, color: resent ? 'var(--positive)' : 'var(--ink-3)',
+          textDecoration: 'underline', fontFamily: FONTS.sans,
+        }}>
+          {resending ? 'Sending…' : resent ? '✓ Code resent' : "Didn't get it? Resend code"}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // ── Step 1: Basics ────────────────────────────────────────────────────────────
-const S1 = ({ d, up, next }) => {
+const S1 = ({ d, up, onStep1Done }) => {
   const [err, setErr] = useState('');
   const [showPw, setShowPw] = useState(false);
+  const [checking, setChecking] = useState(false);
 
-  const go = () => {
+  const go = async () => {
     if (!d.firstName.trim() || !d.lastName.trim()) return setErr('First and last name are required.');
     if (!d.country && !d.countryOther?.trim()) return setErr('Please select your country of birth.');
     if (d.subjects.length === 0) return setErr('Select at least one subject you can tutor.');
     if (!d.email.trim() || !d.email.includes('@')) return setErr('Enter a valid email address.');
     if (d.password.length < 8) return setErr('Password must be at least 8 characters.');
-    setErr('');
-    next();
+    setErr(''); setChecking(true);
+
+    const { data, error } = await supabase.functions.invoke('verify-email', {
+      body: { action: 'send', email: d.email.trim() },
+    });
+    setChecking(false);
+
+    if (error || data?.error) {
+      if (data?.error === 'already_registered') {
+        return setErr('An account with this email already exists. Please sign in instead.');
+      }
+      return setErr('Could not send verification code. Please try again.');
+    }
+    onStep1Done(); // switch to verification sub-screen
   };
 
   return (
@@ -379,7 +478,7 @@ const S1 = ({ d, up, next }) => {
           hint="Optional — students contact you through in-app messaging, not this number." />
       </div>
 
-      <ContBtn onClick={go} />
+      <ContBtn onClick={go} loading={checking} label={checking ? 'Checking…' : 'Continue'} />
     </div>
   );
 };
@@ -1079,6 +1178,7 @@ const Submitted = () => {
 export default function TutorOnboarding() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
+  const [verifying, setVerifying] = useState(false); // email verification sub-screen
   const [completed, setCompleted] = useState(new Set());
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -1208,7 +1308,16 @@ export default function TutorOnboarding() {
 
       {/* Content */}
       <div style={{ flex: 1, maxWidth: 820, width: '100%', margin: '0 auto', padding: '44px 28px 100px' }}>
-        {step === 1 && <S1 {...shared} next={() => markDone(1)} />}
+        {step === 1 && !verifying && (
+          <S1 {...shared} onStep1Done={() => setVerifying(true)} />
+        )}
+        {step === 1 && verifying && (
+          <EmailVerify
+            email={d.email}
+            onVerified={() => { setVerifying(false); markDone(1); }}
+            onBack={() => setVerifying(false)}
+          />
+        )}
         {step === 2 && <S2 {...stepProps(2)} />}
         {step === 3 && <S3 {...stepProps(3)} />}
         {step === 4 && <S4 {...stepProps(4)} />}
