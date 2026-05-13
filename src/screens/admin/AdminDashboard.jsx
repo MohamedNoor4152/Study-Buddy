@@ -387,6 +387,89 @@ const AppCard = ({ app, onApprove, onReject, processing }) => {
 };
 
 // ── Main admin dashboard ──────────────────────────────────────────────────────
+const REJECT_REASONS = [
+  'Incomplete or very short bio',
+  'Profile photo missing or unclear',
+  'Subjects already have enough tutors',
+  'Rate set too high for a new tutor',
+  'Insufficient teaching experience listed',
+  'Intro video missing or low quality',
+  'Application did not meet our standards',
+];
+
+const RejectModal = ({ name, onConfirm, onCancel }) => {
+  const [selected, setSelected] = useState('');
+  const [custom, setCustom] = useState('');
+  const finalReason = selected === '__custom__' ? custom.trim() : selected;
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 200,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 460,
+        padding: 28, boxShadow: '0 16px 56px rgba(0,0,0,.2)' }}>
+        <h3 style={{ fontFamily: FONTS.serif, fontSize: 22, fontWeight: 400, margin: '0 0 6px' }}>
+          Reject {name}?
+        </h3>
+        <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: '0 0 20px' }}>
+          Their account will be deleted so they can reapply. Choose a reason to include in the email — they'll see this.
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+          {REJECT_REASONS.map(r => (
+            <div key={r} onClick={() => setSelected(r)} style={{
+              display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+              borderRadius: 10, cursor: 'pointer', transition: 'all .1s',
+              border: `1.5px solid ${selected === r ? RED : 'var(--border)'}`,
+              background: selected === r ? RED_SOFT : 'var(--surface)',
+            }}>
+              <div style={{ width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+                border: `2px solid ${selected === r ? RED : 'var(--border)'}`,
+                background: selected === r ? RED : 'transparent', transition: 'all .1s' }} />
+              <span style={{ fontSize: 13, color: selected === r ? RED : 'var(--ink)', fontWeight: selected === r ? 600 : 400 }}>{r}</span>
+            </div>
+          ))}
+          <div onClick={() => setSelected('__custom__')} style={{
+            display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+            borderRadius: 10, cursor: 'pointer', transition: 'all .1s',
+            border: `1.5px solid ${selected === '__custom__' ? RED : 'var(--border)'}`,
+            background: selected === '__custom__' ? RED_SOFT : 'var(--surface)',
+          }}>
+            <div style={{ width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+              border: `2px solid ${selected === '__custom__' ? RED : 'var(--border)'}`,
+              background: selected === '__custom__' ? RED : 'transparent', transition: 'all .1s' }} />
+            <span style={{ fontSize: 13, color: selected === '__custom__' ? RED : 'var(--ink)',
+              fontWeight: selected === '__custom__' ? 600 : 400 }}>Write a custom reason…</span>
+          </div>
+        </div>
+
+        {selected === '__custom__' && (
+          <textarea value={custom} onChange={e => setCustom(e.target.value)} rows={3}
+            placeholder="Enter your reason here — the applicant will see this in their email."
+            style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px',
+              border: '1.5px solid var(--border)', borderRadius: 10, fontFamily: FONTS.sans,
+              fontSize: 13, color: 'var(--ink)', background: 'var(--bg)', resize: 'vertical',
+              outline: 'none', marginBottom: 16 }} />
+        )}
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+          <button onClick={() => onConfirm(finalReason)} disabled={!finalReason}
+            style={{ flex: 1, padding: '12px', borderRadius: 10, border: 'none',
+              background: finalReason ? RED : 'var(--border)',
+              color: finalReason ? '#fff' : 'var(--ink-3)',
+              fontSize: 14, fontWeight: 600, cursor: finalReason ? 'pointer' : 'not-allowed',
+              fontFamily: FONTS.sans }}>
+            Reject &amp; notify
+          </button>
+          <button onClick={onCancel} style={{ padding: '12px 20px', borderRadius: 10,
+            border: '1px solid var(--border)', background: 'transparent',
+            fontSize: 14, color: 'var(--ink-3)', cursor: 'pointer', fontFamily: FONTS.sans }}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [unlocked, setUnlocked] = useState(() =>
@@ -396,6 +479,7 @@ export default function AdminDashboard() {
   const [fetching, setFetching] = useState(true);
   const [processing, setProcessing] = useState(null);
   const [toast, setToast] = useState('');
+  const [rejectTarget, setRejectTarget] = useState(null); // { userId, name }
 
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(''), 3500); };
 
@@ -458,19 +542,19 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleReject = async (userId, name) => {
-    const reason = window.prompt(
-      `Rejecting ${name}.\n\nOptional: add a short reason to include in their email (leave blank to skip):`
-    );
-    // prompt returns null if they clicked Cancel
-    if (reason === null) return;
+  const handleReject = (userId, name) => {
+    setRejectTarget({ userId, name });
+  };
+
+  const confirmReject = async (reason) => {
+    const { userId, name } = rejectTarget;
+    setRejectTarget(null);
     setProcessing(userId);
     try {
       const { error } = await supabase.functions.invoke('reject-tutor', {
-        body: { tutorUserId: userId, reason: reason || '' },
+        body: { tutorUserId: userId, reason },
       });
       if (error) throw error;
-      // Remove the card — their account is deleted so they won't appear again
       setApps(prev => prev.filter(a => a.user_id !== userId));
       showToast(`${name} rejected and notified. They can reapply with the same email.`);
     } catch (e) {
@@ -497,6 +581,13 @@ export default function AdminDashboard() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
+      {rejectTarget && (
+        <RejectModal
+          name={rejectTarget.name}
+          onConfirm={confirmReject}
+          onCancel={() => setRejectTarget(null)}
+        />
+      )}
       {/* Nav */}
       <nav style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '16px 32px', borderBottom: '1px solid var(--border)', background: 'var(--surface)',
