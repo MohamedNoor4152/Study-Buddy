@@ -1,14 +1,12 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FONTS } from '../../tokens.js';
 import { Logo } from '../../components/primitives/index.jsx';
 import { supabase } from '../../supabase.js';
-import { useAuth } from '../../AuthContext.jsx';
-
-const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || '';
 
 const RED      = '#DC2626';
 const RED_SOFT = '#FEF2F2';
+const RED_MID  = '#FECACA';
 const GREEN    = '#16A34A';
 const GREEN_SOFT = '#F0FDF4';
 
@@ -18,8 +16,11 @@ const Passcode = ({ onUnlock }) => {
   const [err, setErr] = useState('');
   const secret = import.meta.env.VITE_ADMIN_PASSCODE || 'studybuddy-admin';
   const go = () => {
-    if (code === secret) { sessionStorage.setItem('sb_admin', '1'); onUnlock(); }
-    else setErr('Incorrect passcode.');
+    if (code === secret) {
+      sessionStorage.setItem('sb_admin', '1');
+      sessionStorage.setItem('sb_admin_pc', code);
+      onUnlock();
+    } else setErr('Incorrect passcode.');
   };
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -54,12 +55,15 @@ const SectionLabel = ({ children }) => (
     letterSpacing: '0.1em', marginBottom: 6 }}>{children}</div>
 );
 
-const Field = ({ label, value }) => value ? (
-  <div>
-    <SectionLabel>{label}</SectionLabel>
-    <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{value}</div>
-  </div>
-) : null;
+const Field = ({ label, value }) => {
+  const t = safeText(value);
+  return t ? (
+    <div>
+      <SectionLabel>{label}</SectionLabel>
+      <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{t}</div>
+    </div>
+  ) : null;
+};
 
 const Divider = () => (
   <div style={{ height: 1, background: 'var(--border)', margin: '18px 0' }} />
@@ -68,6 +72,70 @@ const Divider = () => (
 const DAYS  = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const HOURS = (() => { const o=[]; for(let h=8;h<=21;h++){const p=h>=12?'PM':'AM';const d=h>12?h-12:h;o.push(`${d}:00 ${p}`);}return o; })();
 
+/** class_codes may be text[], JSON string, or comma-separated (legacy). */
+const normalizeClassCodes = (cc) => {
+  if (!cc) return [];
+  if (Array.isArray(cc)) return cc.map(String).filter(Boolean);
+  if (typeof cc === 'string') {
+    try {
+      const j = JSON.parse(cc);
+      if (Array.isArray(j)) return j.map(String).filter(Boolean);
+    } catch { /* ignore */ }
+    return cc.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+  return [];
+};
+
+const safeText = (v) => {
+  if (v == null || v === '') return '';
+  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v);
+  try {
+    return JSON.stringify(v);
+  } catch {
+    return '';
+  }
+};
+
+/** Prefer split names; fall back to legacy full_name and email (service-role rows include everything). */
+const tutorDisplayName = (app) => {
+  const split = [app.first_name, app.last_name].filter(Boolean).join(' ').trim();
+  if (split) return split;
+  const fn = typeof app.full_name === 'string' ? app.full_name.trim() : '';
+  if (fn) return fn;
+  const em = typeof app.email === 'string' ? app.email.trim() : '';
+  if (em) return em;
+  return '(no name)';
+};
+
+// ── Error-safe card wrapper ───────────────────────────────────────────────────
+class SafeAppCard extends React.Component {
+  constructor(props) { super(props); this.state = { crashed: false }; }
+  static getDerivedStateFromError() { return { crashed: true }; }
+  render() {
+    if (this.state.crashed) {
+      return (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
+          marginBottom: 14, padding: '16px 20px', display: 'flex', alignItems: 'center',
+          gap: 12, color: 'var(--ink-3)', fontSize: 13 }}>
+          <span>⚠</span>
+          <span>Could not render this application (old format). User ID: {this.props.app?.user_id}</span>
+          {this.props.app?.application_status !== 'approved' && this.props.app?.application_status !== 'rejected' && (
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+              <button onClick={() => this.props.onApprove(this.props.app.user_id, 'this applicant')}
+                style={{ padding: '7px 16px', borderRadius: 8, border: 'none', background: GREEN,
+                  color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Approve</button>
+              <button onClick={() => this.props.onReject(this.props.app.user_id, 'this applicant')}
+                style={{ padding: '7px 16px', borderRadius: 8, border: `1px solid ${RED}`,
+                  color: RED, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: 'none' }}>Reject</button>
+            </div>
+          )}
+        </div>
+      );
+    }
+    return <AppCard {...this.props} />;
+  }
+}
+
 // ── Application card ──────────────────────────────────────────────────────────
 const AppCard = ({ app, onApprove, onReject, processing }) => {
   const [expanded, setExpanded] = useState(false);
@@ -75,15 +143,20 @@ const AppCard = ({ app, onApprove, onReject, processing }) => {
   const date = app.updated_at
     ? new Date(app.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : '—';
+  const codes = normalizeClassCodes(app.class_codes);
+  const name   = tutorDisplayName(app);
+  const initials = name !== '(no name)' ? String(name)[0].toUpperCase() : '?';
 
   // Load schedule when expanded
   useEffect(() => {
-    if (!expanded || schedule !== null) return;
+    if (!expanded || schedule !== null || !app.user_id) return;
     supabase.from('tutor_availability').select('day,hour').eq('tutor_id', app.user_id)
       .then(({ data }) => setSchedule(data || []));
   }, [expanded]);
 
-  const slotSet = new Set((schedule || []).map(r => `${r.day}-${r.hour}`));
+  const slotSet = new Set(
+    (schedule || []).filter((r) => r?.day && r?.hour).map((r) => `${r.day}-${r.hour}`),
+  );
 
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
@@ -92,18 +165,18 @@ const AppCard = ({ app, onApprove, onReject, processing }) => {
       {/* ── Summary row ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '18px 20px' }}>
         {app.photo_url
-          ? <img src={app.photo_url} alt={app.first_name}
+          ? <img src={app.photo_url} alt={name}
               style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
           : <div style={{ width: 56, height: 56, borderRadius: '50%', background: RED_SOFT,
               border: `2px solid ${RED}`, display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 20, fontWeight: 700, color: RED, flexShrink: 0 }}>
-              {(app.first_name?.[0] || '?').toUpperCase()}
+              {initials}
             </div>
         }
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
             <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>
-              {app.first_name} {app.last_name}
+              {name}
             </span>
             {app.has_certification && (
               <span style={{ padding: '2px 8px', borderRadius: 20, background: '#EFF6FF',
@@ -119,13 +192,11 @@ const AppCard = ({ app, onApprove, onReject, processing }) => {
             )}
           </div>
           <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>
-            {app.email} · {app.year} · {app.major} · {app.school}
+            {safeText(app.email)} · {safeText(app.year)} · {safeText(app.major)} · {safeText(app.school)}
           </div>
           <div style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 3 }}>
-            <span style={{ color: RED, fontWeight: 600 }}>${app.rate}/hr</span>
-            {' · '}
-            {(app.class_codes || []).slice(0, 5).join(', ')}
-            {(app.class_codes || []).length > 5 && ` +${app.class_codes.length - 5} more`}
+            <span style={{ color: RED, fontWeight: 600 }}>${safeText(app.rate) || '—'}/hr</span>
+            {codes.length > 0 && <> · {codes.slice(0, 5).join(', ')}{codes.length > 5 && ` +${codes.length - 5} more`}</>}
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
@@ -144,12 +215,12 @@ const AppCard = ({ app, onApprove, onReject, processing }) => {
         <div style={{ borderTop: '1px solid var(--border)', background: 'var(--bg)', padding: '24px 24px 8px' }}>
 
           {/* Headline */}
-          {app.headline && (
+          {safeText(app.headline) && (
             <div style={{ background: RED_SOFT, border: `1px solid ${RED_MID}`, borderRadius: 10,
               padding: '12px 16px', marginBottom: 20 }}>
               <SectionLabel>Headline</SectionLabel>
               <div style={{ fontSize: 15, color: 'var(--ink)', fontStyle: 'italic', lineHeight: 1.5 }}>
-                "{app.headline}"
+                "{safeText(app.headline)}"
               </div>
             </div>
           )}
@@ -158,20 +229,20 @@ const AppCard = ({ app, onApprove, onReject, processing }) => {
             {/* Left column */}
             <div>
               {/* Bio */}
-              {app.bio && (
+              {safeText(app.bio) && (
                 <div style={{ marginBottom: 16 }}>
                   <SectionLabel>Bio</SectionLabel>
                   <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.65,
-                    whiteSpace: 'pre-wrap' }}>{app.bio}</div>
+                    whiteSpace: 'pre-wrap' }}>{safeText(app.bio)}</div>
                 </div>
               )}
 
               {/* Teaching experience */}
-              {app.teaching_experience && (
+              {safeText(app.teaching_experience) && (
                 <div style={{ marginBottom: 16 }}>
                   <SectionLabel>Teaching experience</SectionLabel>
                   <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.65,
-                    whiteSpace: 'pre-wrap' }}>{app.teaching_experience}</div>
+                    whiteSpace: 'pre-wrap' }}>{safeText(app.teaching_experience)}</div>
                 </div>
               )}
 
@@ -184,7 +255,7 @@ const AppCard = ({ app, onApprove, onReject, processing }) => {
                   <Field label="School" value={app.school} />
                   <Field label="Year" value={app.year} />
                   <Field label="Major" value={app.major} />
-                  <Field label="GPA" value={app.gpa || 'Not provided'} />
+                  <Field label="GPA" value={app.gpa ? safeText(app.gpa) : 'Not provided'} />
                 </div>
               </div>
 
@@ -206,17 +277,17 @@ const AppCard = ({ app, onApprove, onReject, processing }) => {
               {/* Pricing */}
               <div style={{ marginBottom: 16 }}>
                 <SectionLabel>Pricing</SectionLabel>
-                <div style={{ fontSize: 22, fontWeight: 700, color: RED }}>${app.rate}<span style={{ fontSize: 13, fontWeight: 400, color: 'var(--ink-3)' }}>/hr</span></div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: RED }}>${safeText(app.rate) || '—'}<span style={{ fontSize: 13, fontWeight: 400, color: 'var(--ink-3)' }}>/hr</span></div>
               </div>
             </div>
 
             {/* Right column */}
             <div>
               {/* Video */}
-              {app.video_url ? (
+              {safeText(app.video_url) ? (
                 <div style={{ marginBottom: 16 }}>
                   <SectionLabel>Intro video</SectionLabel>
-                  <video src={app.video_url} controls poster={app.video_thumbnail_url || undefined}
+                  <video src={safeText(app.video_url)} controls poster={safeText(app.video_thumbnail_url) || undefined}
                     style={{ width: '100%', borderRadius: 10, background: '#000', maxHeight: 220 }} />
                 </div>
               ) : (
@@ -242,12 +313,15 @@ const AppCard = ({ app, onApprove, onReject, processing }) => {
 
               {/* Subjects */}
               <div style={{ marginBottom: 16 }}>
-                <SectionLabel>Subjects ({(app.class_codes || []).length})</SectionLabel>
+                <SectionLabel>Subjects ({codes.length})</SectionLabel>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                  {(app.class_codes || []).map(c => (
-                    <span key={c} style={{ padding: '4px 10px', borderRadius: 20, background: RED_SOFT,
-                      border: `1px solid ${RED_MID}`, color: RED, fontSize: 12, fontWeight: 600 }}>{c}</span>
-                  ))}
+                  {codes.length === 0
+                    ? <span style={{ fontSize: 13, color: 'var(--ink-3)' }}>None listed</span>
+                    : codes.map((c, i) => (
+                        <span key={`${c}-${i}`} style={{ padding: '4px 10px', borderRadius: 20, background: RED_SOFT,
+                          border: `1px solid ${RED_MID}`, color: RED, fontSize: 12, fontWeight: 600 }}>{c}</span>
+                      ))
+                  }
                 </div>
               </div>
 
@@ -283,7 +357,7 @@ const AppCard = ({ app, onApprove, onReject, processing }) => {
                         </div>
                       ))}
                       <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 6 }}>
-                        {schedule.length} available hour{schedule.length !== 1 ? 's' : ''}/week · {app.timezone}
+                        {schedule.length} available hour{schedule.length !== 1 ? 's' : ''}/week · {safeText(app.timezone) || '—'}
                       </div>
                     </div>
                   </div>
@@ -295,17 +369,17 @@ const AppCard = ({ app, onApprove, onReject, processing }) => {
       )}
 
       {/* ── Action buttons ── */}
-      {app.application_status === 'pending_review' && (
+      {app.application_status !== 'approved' && app.application_status !== 'rejected' && (
         <div style={{ display: 'flex', gap: 10, padding: '14px 20px',
           borderTop: '1px solid var(--border)', background: 'var(--surface)' }}>
-          <button onClick={() => onApprove(app.user_id, app.first_name)} disabled={processing === app.user_id}
+          <button onClick={() => onApprove(app.user_id, name)} disabled={processing === app.user_id}
             style={{ padding: '11px 28px', borderRadius: 10, border: 'none',
               background: processing === app.user_id ? 'var(--border)' : GREEN,
               color: '#fff', fontSize: 14, fontWeight: 600,
               cursor: processing === app.user_id ? 'default' : 'pointer', fontFamily: FONTS.sans }}>
             {processing === app.user_id ? 'Processing…' : '✓ Approve'}
           </button>
-          <button onClick={() => onReject(app.user_id, app.first_name)} disabled={processing === app.user_id}
+          <button onClick={() => onReject(app.user_id, name)} disabled={processing === app.user_id}
             style={{ padding: '11px 28px', borderRadius: 10, border: `1.5px solid ${RED}`,
               background: 'transparent', color: RED, fontSize: 14, fontWeight: 600,
               cursor: processing === app.user_id ? 'default' : 'pointer', fontFamily: FONTS.sans }}>
@@ -320,8 +394,8 @@ const AppCard = ({ app, onApprove, onReject, processing }) => {
 // ── Main admin dashboard ──────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const { user, loading } = useAuth();
-  const [unlocked, setUnlocked] = useState(() => !!sessionStorage.getItem('sb_admin'));
+  const [unlocked, setUnlocked] = useState(() =>
+    !!sessionStorage.getItem('sb_admin') && !!sessionStorage.getItem('sb_admin_pc'));
   const [tab, setTab] = useState('pending_review');
   const [apps, setApps] = useState([]);
   const [fetching, setFetching] = useState(true);
@@ -330,11 +404,49 @@ export default function AdminDashboard() {
 
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(''), 3500); };
 
+  const loadApplications = async () => {
+    const pc = sessionStorage.getItem('sb_admin_pc');
+    if (!pc) {
+      setApps([]);
+      setFetching(false);
+      return;
+    }
+    setFetching(true);
+    const { data, error } = await supabase.functions.invoke('admin-list-applications', {
+      body: { passcode: pc },
+    });
+    setFetching(false);
+
+    let detail = '';
+    if (error?.context && typeof error.context.clone === 'function') {
+      try {
+        const body = await error.context.clone().json();
+        if (body?.error) detail = body.error;
+      } catch {
+        try {
+          const t = await error.context.clone().text();
+          if (t) detail = t.slice(0, 240);
+        } catch { /* ignore */ }
+      }
+    }
+    const msg = detail || error?.message || '';
+
+    if (error) {
+      showToast(msg ? `Could not load applications: ${msg}` : 'Could not load applications.');
+      setApps([]);
+      return;
+    }
+    if (data?.error) {
+      showToast(data.error);
+      setApps([]);
+      return;
+    }
+    setApps(data?.applications || []);
+  };
+
   useEffect(() => {
     if (!unlocked) return;
-    setFetching(true);
-    supabase.from('tutor_profiles').select('*').order('updated_at', { ascending: false })
-      .then(({ data }) => { setApps(data || []); setFetching(false); });
+    loadApplications();
   }, [unlocked]);
 
   const handleApprove = async (userId, name) => {
@@ -367,13 +479,18 @@ export default function AdminDashboard() {
   };
 
   if (!unlocked) return <Passcode onUnlock={() => setUnlocked(true)} />;
-  if (loading) return null;
 
-  const filtered = apps.filter(a => a.application_status === tab);
+  const normalize = a => ({
+    ...a,
+    application_status: a.application_status || 'pending_review',
+  });
+  const normalized = apps.map(normalize);
+  const filtered = normalized.filter(a => a.application_status === tab);
+
   const counts = {
-    pending_review: apps.filter(a => a.application_status === 'pending_review').length,
-    approved:       apps.filter(a => a.application_status === 'approved').length,
-    rejected:       apps.filter(a => a.application_status === 'rejected').length,
+    pending_review: normalized.filter(a => a.application_status === 'pending_review').length,
+    approved:       normalized.filter(a => a.application_status === 'approved').length,
+    rejected:       normalized.filter(a => a.application_status === 'rejected').length,
   };
 
   return (
@@ -388,12 +505,12 @@ export default function AdminDashboard() {
           <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>Admin</span>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={() => { setFetching(true); supabase.from('tutor_profiles').select('*').order('updated_at', { ascending: false }).then(({ data }) => { setApps(data || []); setFetching(false); }); }}
+          <button onClick={() => loadApplications()}
             style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid var(--border)',
               background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--ink-2)', fontFamily: FONTS.sans }}>
             ↻ Refresh
           </button>
-          <button onClick={() => { sessionStorage.removeItem('sb_admin'); setUnlocked(false); }}
+          <button onClick={() => { sessionStorage.removeItem('sb_admin'); sessionStorage.removeItem('sb_admin_pc'); setUnlocked(false); }}
             style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid var(--border)',
               background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--ink-3)', fontFamily: FONTS.sans }}>
             Lock
@@ -446,7 +563,7 @@ export default function AdminDashboard() {
           </div>
         ) : (
           filtered.map(app => (
-            <AppCard key={app.user_id} app={app}
+            <SafeAppCard key={app.user_id} app={app}
               onApprove={handleApprove} onReject={handleReject} processing={processing} />
           ))
         )}

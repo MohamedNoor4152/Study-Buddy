@@ -1153,8 +1153,9 @@ export default function TutorOnboarding() {
         upload('intro-videos',`${userId}/thumb.${ext(d.thumbnailFile)}`,  d.thumbnailFile),
       ]);
 
-      await supabase.from('tutor_profiles').upsert({
+      const { error: profileErr } = await supabase.from('tutor_profiles').upsert({
         user_id: userId,
+        full_name: `${d.firstName} ${d.lastName}`.trim(),
         email: d.email,
         first_name: d.firstName, last_name: d.lastName,
         country: d.country === 'Other' ? (d.countryOther || 'Other') : d.country, phone: d.phone,
@@ -1172,6 +1173,7 @@ export default function TutorOnboarding() {
         application_status: 'pending_review',
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' });
+      if (profileErr) throw new Error(profileErr.message);
 
       const slotRows = Object.entries(d.slots).filter(([, v]) => v).map(([k]) => {
         const idx = k.indexOf('-');

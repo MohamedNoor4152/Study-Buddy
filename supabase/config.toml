@@ -1,0 +1,6 @@
+# Study Buddy — Supabase local / deploy config
+# https://supabase.com/docs/guides/functions/function-configuration
+
+[functions.admin-list-applications]
+# Lets the anon Supabase client invoke this function (still protected by ADMIN_PASSCODE body).
+verify_jwt = false
